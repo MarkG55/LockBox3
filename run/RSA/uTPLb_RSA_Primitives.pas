@@ -1,5 +1,6 @@
 {* ***** BEGIN LICENSE BLOCK *****
 Copyright 2010 Sean B. Durkin
+Copyright 2020 Mark Griffiths
 This file is part of TurboPower LockBox 3. TurboPower LockBox 3 is free
 software being offered under a dual licensing scheme: LGPL3 or MPL1.1.
 
@@ -945,7 +946,7 @@ try
 //       M' is an octet string of length 8 + hLen + sLen with eight
 //       initial zero octets.
   SaltP := M_Dash.Position;
-  M_Dash.CopyFrom( TRandomStream.Instance, sLen);
+  M_Dash.CopyFrom( TRandomStream.DefaultInstance, sLen);
 
 //   6.  Let H = Hash(M'), an octet string of length hLen.
   Hash.HashStream( M_Dash);

@@ -1,5 +1,6 @@
 {* ***** BEGIN LICENSE BLOCK *****
 Copyright 2009 Sean B. Durkin
+Copyright 2020 Mark Griffiths
 This file is part of TurboPower LockBox 3. TurboPower LockBox 3 is free
 software being offered under a dual licensing scheme: LGPL3 or MPL1.1.
 
@@ -28,253 +29,269 @@ and earlier was TurboPower Software.
 
  * ***** END LICENSE BLOCK ***** *}
 
+// Unit for generating pseudo random data via a Stream
+//
+// Uses System Entropy source along with additional entropy to get initial
+// starting entropy and for periodically getting new entropy
+// Uses 512 bit SHA2 Hash to combine entropy sources and then uses this as a key
+// to an AES cipher to generate the actual pseudo random data
+//
+// If you want to, you can override the default RandomStream instance with another
+// TStream descedant - in case you want to use a simpler random number generator
+// for testing purposes or if you think you can come up with something better.
+// You can also create your own entropy sources and add/replace the default entropy
+// sources that are used in this unit.
+//
+// A good quality random data source is essential for secure communications.
+// Previous implementations used a 64 bit integer as a seed which made a complete
+// mockery of the idea of using 256 bit keys for better security.
+// The previous implementation used the Windows Crypto API for the see which
+// wasn't too bad (not that great with just 64 bits of course)
+// On other platforms, things were far worse with it using a 64 bit counter from
+// the operating system with a very (in cryptographic terms) predicatable value.
+// Any long term keys created with the previous implementation should be replaced
+// as a matter of urgency!
+
 unit uTPLb_Random;
+
 interface
-uses Classes;
 
-type
+uses
+  Classes,
+  System.SysUtils,
+  uTPLb_Logging,
+  uTPLb_EntropySource,
+  uTPLb_SystemEntropySource,
+  uTPLb_ThreadBasedEntropySource,
+  uTPLb_Time,
+  uTPLb_Constants,
+  uTPLb_CryptographicLibrary,
+  uTPLb_Codec,
+  uTPLb_ECB,
+  uTPLb_BlockCipher,
+  uTPLb_Hash;
 
-TRandomStream = class( TStream)
+Const
+  AES_KeySize = 256;
+  AES_KeySizeInBytes = AES_KeySize div 8;
+  DefaultReseedInterval = 300; // 5 minutes
+
+Type
+
+  TRandomStream = class(TStream)
   private
-    FValue: int64;
-    FBuffer: int64;
-    FAvail: integer;
+    EntropySource: TCombinedEntropySource;
+    RandomDataBuffer: TBytesStream;
+    Lib: TCryptographicLibrary;
+    Codec: TCodec;
+    Hash: THash;
+    LastHashValue: TBytesStream;
+    BlockCounter: Int64;
+    BlockCounterStream: TBytesStream;
+    LastReKey: Int64;
+    FReseedInterval: Integer;
+    class var FDefaultInstance: TStream;
 
-    procedure Crunch;
-    procedure SetSeed( Value: int64);
-
+    procedure GetNewBlock;
+    procedure SetCodecKey;
+    procedure SetNewKeyIfRequired;
+    procedure SetReseedInterval(const Value: Integer);
+    class function GetDefaultInstance: TStream; static;
+    class procedure SetDefaultInstance(const Value: TStream); static;
   protected
-    function  GetSize: Int64; override;
-    procedure SetSize( const NewSize: Int64); override;
-
+    function GetSize: Int64; override;
+    procedure SetSize(const NewSize: Int64); override;
   public
     constructor Create;
-    destructor  Destroy; override;
-    class function Instance: TRandomStream;
+    destructor Destroy; override;
+    class destructor Destroy;
 
-    function  Read ( var Buffer; Count: Longint): Longint; override;
-    function  Write( const Buffer; Count: Longint): Longint; override;
-    function  Seek ( const Offset: Int64; Origin: TSeekOrigin): Int64; override;
+    Procedure RemoveAllEntropySources;
+    Procedure AddEntropySource(NewEntropySource: TEntropySource);
 
-    procedure Randomize;
+    function Read(var Buffer; Count: Longint): Longint; override;
+    function Write(const Buffer; Count: Longint): Longint; override;
+    function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
 
-    property  Seed: int64           read FValue write SetSeed;
+    property ReseedInterval: Integer read FReseedInterval write SetReseedInterval;
+    class property DefaultInstance: TStream read GetDefaultInstance write SetDefaultInstance;
   end;
-
 
 implementation
 
 uses
-  {$IFDEF MSWINDOWS}Windows, {$ENDIF}Math, SysUtils, uTPLb_IntegerUtils;
-var
-  Inst: TRandomStream = nil;
-
-
-
-
-
-
-function TimeStampClock: int64;
-{$IFDEF ASSEMBLER}
-asm
-  RDTSC
-end;
-{$ELSE}
-var
-  SystemTimes: TThread.TSystemTimes;
-begin
-  TThread.GetSystemTimes( SystemTimes);
-  result := SystemTimes.KernelTime
-end;
-{$ENDIF}
-
-
-procedure InitUnit_Random;
-begin
-end;
-
-
-procedure DoneUnit_Random;
-begin
-Inst.Free
-end;
-
-
-{$IFDEF MSWINDOWS}
-function CryptAcquireContext(
-  var phProv: THandle;
-  pszContainer, pszProvider: PChar;
-  dwProvType, dwFlags: DWORD): bool;
-  stdcall; external advapi32 name 'CryptAcquireContextW';
-
-function CryptReleaseContext(
-  hProv: THandle;
-  dwFlags: DWORD): bool;
-  stdcall; external advapi32 name 'CryptReleaseContext';
-
-function CryptGenRandom(
-  hProv: THandle;
-  dwLen: DWORD;
-  pbBuffer: pointer): bool;
-  stdcall; external advapi32 name 'CryptGenRandom';
-
-const
-  PROV_RSA_FULL = 1;
-  CRYPT_SILENT = 64;
-  Provider = 'Microsoft Base Cryptographic Provider v1.0';
-{$ENDIF}
-
-
-
-
+  Math,
+  uTPLb_IntegerUtils;
 
 { TRandomStream }
 
+procedure TRandomStream.RemoveAllEntropySources;
+begin
+  EntropySource.RemoveAllEntropySources;
+end;
+
+procedure TRandomStream.AddEntropySource(NewEntropySource: TEntropySource);
+begin
+  EntropySource.AddEntropySource(NewEntropySource);
+end;
+
 constructor TRandomStream.Create;
 begin
-if not assigned( Inst) then
-  Inst := self;
-Randomize
+  ReseedInterval := DefaultReseedInterval;
+
+  EntropySource := TCombinedEntropySource.Create;
+  AddEntropySource(TSystemEntropySource.Create);
+  AddEntropySource(TThreadBasedEntropySource.Create);
+
+  RandomDataBuffer := TBytesStream.Create;
+  BlockCounterStream := TBytesStream.Create;
+
+  Lib := TCryptographicLibrary.Create(nil);
+  Lib.RegisterBlockChainingModel(TECB.Create as IBlockChainingModel);
+
+  Codec := TCodec.Create(nil);
+  Codec.CryptoLibrary := Lib;
+  Codec.StreamCipherId := BlockCipher_ProgId;
+  Codec.BlockCipherId := Format(AES_ProgId, [AES_KeySize]);
+  Codec.ChainModeId := ECB_ProgId;
+
+  Hash := THash.Create(nil);
+  Hash.CryptoLibrary := Lib;
+  Hash.HashId := SHA512_ProgId;
+  LastHashValue := TBytesStream.Create;
+
+  SetCodecKey;
 end;
-
-
-{$OVERFLOWCHECKS OFF} {$RANGECHECKS OFF}
-procedure TRandomStream.Crunch;
-// Refer http://www.merlyn.demon.co.uk/pas-rand.htm
-const
-  Factor: int64 = 6364136223846793005;
-begin
-FValue  := FValue * Factor + 1 ;
-FBuffer := FValue;
-FAvail  := SizeOf( FValue)
-end;
-{$RANGECHECKS ON} {$OVERFLOWCHECKS ON}
-
 
 destructor TRandomStream.Destroy;
 begin
-if Inst = self then
-  Inst := nil;
-inherited
+  LastHashValue.Free;
+  Hash.Free;
+  Codec.Free;
+  Lib.Free;
+  BlockCounterStream.Free;
+  RandomDataBuffer.Free;
+  EntropySource.Free;
+
+  inherited;
 end;
 
+class destructor TRandomStream.Destroy;
+begin
+  FDefaultInstance.Free;
+end;
+
+class function TRandomStream.GetDefaultInstance: TStream;
+begin
+  if not Assigned(FDefaultInstance) then
+    FDefaultInstance := TRandomStream.Create;
+
+  Result := FDefaultInstance;
+end;
+
+procedure TRandomStream.GetNewBlock;
+begin
+  BlockCounterStream.Size := SizeOf(BlockCounter);
+  Move(BlockCounter, BlockCounterStream.Memory^, SizeOf(BlockCounter));
+  BlockCounterStream.Position := 0;
+
+  RandomDataBuffer.Size := 0;
+  Codec.EncryptStream(BlockCounterStream, RandomDataBuffer);
+  Inc(BlockCounter);
+  RandomDataBuffer.Position := 0;
+end;
 
 function TRandomStream.GetSize: Int64;
 begin
-result := 0
+  Result := 0;
 end;
 
-
-class function TRandomStream.Instance: TRandomStream;
-begin
-if not assigned( Inst) then
-  TRandomStream.Create;
-result := Inst
-end;
-
-
-procedure TRandomStream.Randomize;
-{$IFDEF MSWINDOWS}
+function TRandomStream.Read(var Buffer; Count: Longint): Longint;
 var
-  hProv: THandle;
-  dwProvType, dwFlags: DWORD;
-  Provider1: string;
-  hasOpenHandle: boolean;
-{$ENDIF}
+  Output: PByte;
+  NewBytes: Integer;
 begin
-{$IFDEF MSWINDOWS}
-Provider1  := Provider;
-dwProvType := PROV_RSA_FULL;
-dwFlags    := CRYPT_SILENT;
-hasOpenHandle := CryptAcquireContext( hProv, nil, PChar( Provider), dwProvType, dwFlags);
-try
-  if (not hasOpenHandle) or (not CryptGenRandom( hProv, SizeOf( FValue), @FValue)) then
-    FValue := TimeStampClock
-finally
-  if hasOpenHandle then
-    CryptReleaseContext( hProv, 0)
+  SetNewKeyIfRequired;
+
+  Result := 0;
+  Output := @Buffer;
+
+  while Count > 0 do
+    begin
+      if RandomDataBuffer.Position >= RandomDataBuffer.Size then
+        GetNewBlock;
+
+      NewBytes := Min(RandomDataBuffer.Size - RandomDataBuffer.Position, Count);
+
+      Move(RandomDataBuffer.Memory^, Output^, NewBytes);
+      Dec(Count, NewBytes);
+      Inc(Result, NewBytes);
+      Inc(Output, NewBytes);
+      RandomDataBuffer.Position := RandomDataBuffer.Position + NewBytes;
+    end;
+end;
+
+function TRandomStream.Seek(const Offset: Int64; Origin: TSeekOrigin): Int64;
+begin
+  Result := 0;
+end;
+
+procedure TRandomStream.SetCodecKey;
+var
+  EntropyData: TBytesStream;
+begin
+  DebugMsg('TRandomStream.SetCodecKey');
+
+  EntropyData := TBytesStream.Create;
+
+  try
+    LastHashValue.Position := 0;
+    EntropyData.LoadFromStream(LastHashValue);
+    EntropySource.ReadEntropy(EntropyData, AES_KeySize);
+    EntropyData.Position := 0;
+    Hash.HashStream(EntropyData);
+
+    Hash.HashOutputValue.Position := 0;
+    LastHashValue.Size := 0;
+    LastHashValue.LoadFromStream(Hash.HashOutputValue);
+
+    LastHashValue.Position := 0;
+    Codec.InitFromStream(LastHashValue);
+
+    LastReKey := TTimeUtils.GetTickCount64;
+  finally
+    EntropyData.Free;
   end;
-{$ELSE}
-  FValue := TimeStampClock;
-{$ENDIF}
-Crunch
 end;
 
-
-
-
-function TRandomStream.Read( var Buffer; Count: Longint): Longint;
-var
-  P: PByte;
-  Amnt, AmntBits, C: integer;
-  Harv: int64;
-  Carry: uint32;
+class procedure TRandomStream.SetDefaultInstance(const Value: TStream);
 begin
-result := Max( Count, 0);
-if result <= 0 then exit;
-P := @Buffer;
-C := result;
-repeat
-  Amnt := Min( FAvail, C);
-  Move( FBuffer, P^, Amnt);
-  Dec( FAvail, Amnt);
-  Dec( C, Amnt);
-  Inc( P, Amnt);
-  if FAvail <= 0 then
-      Crunch
-    else
-      begin
-      Harv := FBuffer;
-      if Amnt >= 4 then
-        begin
-        Int64Rec( Harv).Lo := Int64Rec( Harv).Hi;
-        Int64Rec( Harv).Hi := 0;
-        Dec( Amnt, 4)
-        end;
-      if Amnt > 0 then
-        begin
-        AmntBits := Amnt * 8;
-        Carry :=               Int64Rec( Harv).Hi shl (32 - (AmntBits));
-        Int64Rec( Harv).Hi :=  Int64Rec( Harv).Hi shr AmntBits;
-        Int64Rec( Harv).Lo := (Int64Rec( Harv).Lo shr AmntBits) or Carry;
-        end;
-      FBuffer := Harv
-      end
-until C <= 0
+  FDefaultInstance.Free;
+  FDefaultInstance := Value;
 end;
 
-
-function TRandomStream.Seek( const Offset: Int64; Origin: TSeekOrigin): Int64;
+procedure TRandomStream.SetNewKeyIfRequired;
 begin
-result := 0
+  if ReseedInterval <= 0 then
+    exit;
+
+  if (TTimeUtils.GetTickCount64 - LastReKey) >= (ReseedInterval * 1000) then
+    SetCodecKey;
 end;
 
-
-procedure TRandomStream.SetSeed( Value: int64);
+procedure TRandomStream.SetReseedInterval(const Value: Integer);
 begin
-FValue  := Value;
-FBuffer := FValue;
-FAvail  := SizeOf( FBuffer)
+  FReseedInterval := Value;
 end;
 
-
-procedure TRandomStream.SetSize( const NewSize: Int64);
+procedure TRandomStream.SetSize(const NewSize: Int64);
 begin
+
 end;
 
-
-function TRandomStream.Write( const Buffer; Count: Longint): Longint;
+function TRandomStream.Write(const Buffer; Count: Longint): Longint;
 begin
-result := Count
+  Result := 0;
 end;
-
-
-
-initialization
-InitUnit_Random;
-
-finalization
-DoneUnit_Random;
-
 
 end.

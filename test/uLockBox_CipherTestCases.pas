@@ -2,7 +2,8 @@ unit uLockBox_CipherTestCases;
 interface
 
 uses TestFramework, uTPLb_Hash, uTPLb_CryptographicLibrary, Classes,
-     uTPLb_Codec, uTPLb_StreamCipher, uLockBox_TestCases, uTPLb_Random;
+     uTPLb_Codec, uTPLb_StreamCipher, uLockBox_TestCases, uTPLb_Random,
+     uTPLb_InsecureRandom;
 
 type
 
@@ -143,7 +144,7 @@ TTwofish_Reference_TestCase = class( TBlockMode_TestCase)
 
 TMasBug_TestCase = class( TTestCase)
   protected
-    FRand: TRandomStream;
+    FRand: TInsecureRandomStream;
     P: PByte;
     Len: integer;
 
@@ -252,7 +253,7 @@ var
 
   function RandomSizableNumber: integer;
   begin
-  TRandomStream.Instance.Read( result, SizeOf( result));
+  TRandomStream.DefaultInstance.Read( result, SizeOf( result));
   result := (abs( result) mod 200) + 50
   end;
 
@@ -468,7 +469,7 @@ begin
 TestSizeRange( MinBytes, MaxBytes);
 for j := 1 to 100 do
   begin
-  TRandomStream.Instance.Read( TestSize, SizeOf( TestSize));
+  TRandomStream.DefaultInstance.Read( TestSize, SizeOf( TestSize));
   TestSize := (abs( TestSize) mod (MaxBytes - MinBytes + 1)) + MinBytes;
   FOriginal.Size := TestSize;
   RandomFillStream( FOriginal);
@@ -1031,7 +1032,8 @@ end;
 
 procedure TMasBug_TestCase.SetUp;
 begin
-FRand := TRandomStream.Instance ;
+FRand := TInsecureRandomStream.Create;
+TRandomStream.DefaultInstance:= FRand;
 Len   := 32;
 GetMem( P, Len);
 end;

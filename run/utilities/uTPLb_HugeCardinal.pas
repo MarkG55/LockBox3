@@ -1,5 +1,6 @@
 {* ***** BEGIN LICENSE BLOCK *****
 Copyright 2010 Sean B. Durkin
+Copyright 2020 Mark Griffiths
 This file is part of TurboPower LockBox 3. TurboPower LockBox 3 is free
 software being offered under a dual licensing scheme: LGPL3 or MPL1.1.
 
@@ -503,7 +504,7 @@ var
   HighByte, Mask: byte;
 begin
 if BitsOfRandom <= 0 then exit;
-R := TRandomStream.Instance;
+R := TRandomStream.DefaultInstance;
 CheckBits;
 Bits := BitsOfRandom;
 Bytes := ((Bits + 7) div 8) - 1;

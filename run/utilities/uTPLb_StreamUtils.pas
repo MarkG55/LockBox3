@@ -1,5 +1,6 @@
 {* ***** BEGIN LICENSE BLOCK *****
 Copyright 2009 Sean B. Durkin
+Copyright 2020 Mark Griffiths
 This file is part of TurboPower LockBox 3. TurboPower LockBox 3 is free
 software being offered under a dual licensing scheme: LGPL3 or MPL1.1.
 
@@ -149,7 +150,7 @@ end;
 procedure RandomFillStream( Stream: TMemoryStream);
 begin
 if assigned( Stream) and (Stream.Size > 0) then
-  TRandomStream.Instance.Read( Stream.Memory^, Stream.Size)
+  TRandomStream.DefaultInstance.Read( Stream.Memory^, Stream.Size)
 end;
 
 

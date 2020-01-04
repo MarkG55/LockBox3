@@ -1,6 +1,7 @@
 unit uTPLb_XXTEA;
 {* ***** BEGIN LICENSE BLOCK *****
 Copyright 2010 Sean B. Durkin
+Copyright 2020 Mark Griffiths
 This file is part of TurboPower LockBox 3. TurboPower LockBox 3 is free
 software being offered under a dual licensing scheme: LGPL3 or MPL1.1.
 
@@ -666,7 +667,7 @@ if FisBuffering then
     L := (RequiredSize div 4) + 2;
     SetLength( PlaintextArray, L); // Setup longword array.
     Move( FBuffer[0], PlaintextArray[0], RequiredSize); // Convert padded payload to longwords.
-    TRandomStream.Instance.Read( PlaintextArray[L-2], 8); // Salting.
+    TRandomStream.DefaultInstance.Read( PlaintextArray[L-2], 8); // Salting.
     SetLength( CiphertextArray, L);
     XXTEA_Encrypt( FKey.FNativeKey, PlaintextArray, CiphertextArray); // One-block encryption.
     FCipherText.Write( CiphertextArray[0], L * 4)
@@ -676,7 +677,7 @@ if FisBuffering then
     PTCopy := TMemoryStream.Create;
     try
       PTCopy.Size := LargeMessageSaltTailLength;
-      TRandomStream.Instance.Read( PTCopy.Memory^, LargeMessageSaltTailLength); // 12 random bytes
+      TRandomStream.DefaultInstance.Read( PTCopy.Memory^, LargeMessageSaltTailLength); // 12 random bytes
       PTCopy.Position := 0;
       FFixedEnc.Encrypt( PTCopy)
     finally

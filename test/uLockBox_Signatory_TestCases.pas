@@ -1,7 +1,7 @@
 unit uLockBox_Signatory_TestCases;
 interface
 uses TestFramework, uTPLb_MemoryStreamPool, Classes, uTPLb_Signatory,
-     uTPLb_Codec, uTPLb_CryptographicLibrary, uTPLb_Random;
+     uTPLb_Codec, uTPLb_CryptographicLibrary, uTPLb_Random, uTPLb_InsecureRandom;
 
 const
 
@@ -59,7 +59,7 @@ TRSASignatory_TestCase = class( TTestCase)
     FLib: TCryptographicLibrary;
     FDocument: TMemoryStream;
     FSignature: TStream;
-    FRand: TRandomStream;
+    FRand: TInsecureRandomStream;
 
     procedure SetUp; override;
     procedure TearDown; override;
@@ -112,7 +112,8 @@ end;
 
 procedure TRSASignatory_TestCase.SetUp;
 begin
-FRand := TRandomStream.Instance;
+FRand := TInsecureRandomStream.Create;
+TRandomStream.DefaultInstance:= FRand;
 FSeed_StandardTest := 1;
 FDocumentSize_StandardTest := 4000;
 FKey := TMemoryStream.Create;

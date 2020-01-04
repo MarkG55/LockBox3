@@ -1,4 +1,6 @@
-# TurboPack LockBox3
+# TurboPack LockBox 3.8
+
+## Updated to replace the random number generator with a more secure version.  Updating to this new version is highly recommended and any long term keys created with the old version should be replaced as a matter of urgency.
 
 Updated for **10.3 Rio** / VER330 / PKG 260
 

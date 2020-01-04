@@ -2,7 +2,7 @@ unit uLockBox_RSA_TestCases;
 interface
 uses TestFramework, uTPLb_Hash, uTPLb_CryptographicLibrary, Classes,
      uTPLb_Codec, uTPLb_StreamCipher, uTPLb_HugeCardinal,
-     uTPLb_MemoryStreamPool;
+     uTPLb_MemoryStreamPool, uTPLB_InsecureRandom;
 
 type
 TRSA_TestCase = class( TTestCase)
@@ -10,6 +10,7 @@ TRSA_TestCase = class( TTestCase)
     FPool: IMemoryStreamPool;
     FwasAborted: boolean;
     FdoAbort: boolean;
+    FRand: TInsecureRandomStream;
 
     procedure SetUp; override;
     procedure TearDown; override;
@@ -139,7 +140,7 @@ var
   i1, i2: THugeCardinal;
   s1, s2: TMemoryStream;
 begin
-TRandomStream.Instance.Seed := 1;
+FRand.Seed := 1;
 
 // 1. Create a Huge Cardinal of 64 bits (8 bytes).
 i1 := THugeCardinal.CreateRandom( 64, 64, True, FPool);
@@ -195,7 +196,7 @@ var
   Plaintext, Ciphertext, Recon: TMemoryStream;
   p, q, dp, dq, qinv: THugeCardinal;
 begin
-TRandomStream.Instance.Seed := 1;
+FRand.Seed := 1;
 for j := 1 to 3 do
   begin
   Count1 := 0;
@@ -234,6 +235,8 @@ end;
 
 procedure TRSA_TestCase.SetUp;
 begin
+FRand := TInsecureRandomStream.Create;
+TRandomStream.DefaultInstance:= FRand;
 FPool := NewPool;
 FwasAborted := False;
 FdoAbort    := False;
@@ -303,7 +306,7 @@ var
   m0: THugeCardinal;
   c: THugeCardinal;
 begin
-  TRandomStream.Instance.Seed := 55;
+  FRand.Seed := 55;
 
   // result(=m==65) == pre_self(=c=2790) ** Exponent(=d=2753) mod Modulus(=n=3233)
   c := THugeCardinal.CreateSimple( 2790);
@@ -374,7 +377,7 @@ begin
 // 9. Compare and check plaintext with reconstruction
 // 10. Clean-up (n, d, e, plaintext, ciphertext, recon)
 
-TRandomStream.Instance.Seed := 1;
+FRand.Seed := 1;
 Tmp := FPool.NewMemoryStream( 0);
 PlainText  := TMemoryStream.Create;
 Ciphertext := TMemoryStream.Create;

@@ -1,5 +1,6 @@
 {* ***** BEGIN LICENSE BLOCK *****
 Copyright 2009 Sean B. Durkin
+Copyright 2020 Mark Griffiths
 This file is part of TurboPower LockBox 3. TurboPower LockBox 3 is free
 software being offered under a dual licensing scheme: LGPL3 or MPL1.1.
 
@@ -991,7 +992,7 @@ begin
              FParameterizedStreamCipher.Features) = []) then
   begin
     FisSalting := True;
-    TRandomStream.Instance.Read(Salt, SaltSize);
+    TRandomStream.DefaultInstance.Read(Salt, SaltSize);
     EncryptMemory(Salt, SaltSize);
     FisSalting := False
   end;
