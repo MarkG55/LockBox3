@@ -53,35 +53,36 @@ var
   Device: Integer;
   Bytes: TBytes;
 begin
-  Result:= 0;
-  BytesRequired:= MinimumBits div 8;
+  Result := 0;
+  BytesRequired := MinimumBits div 8;
   SetLength(Bytes, BytesRequired);
 
-  Device:= FileOpen('/dev/urandom', fmOpenRead);
+  Device := FileOpen('/dev/urandom', fmOpenRead);
 
   try
     if Device <= 0 then
-      Device:= FileOpen('/dev/random', fmOpenRead);
+      Device := FileOpen('/dev/random', fmOpenRead);
 
     if Device <= 0 then
       exit;
 
     if BytesRequired > 32 then
-      BytesRequired:= 32; // up to 256 bits - see "man urandom" Usage paragraph
+      BytesRequired := 32; // up to 256 bits - see "man urandom" Usage paragraph
 
-    Result:= FileRead(Device, Bytes[0], BytesRequired);
+    Result := FileRead(Device, Bytes[0], BytesRequired);
     EntropyData.Write(Bytes[0], Result);
   finally
     if Device > 0 then
       FileClose(Device);
 
     if Result <> BytesRequired then
-      DebugMsg('Failed to get requested entropy from /dev/urandom - Requested: ' + IntToStr(BytesRequired) + ' Got: ' + IntToStr(Result));
+      DebugMsg('Failed to get requested entropy from /dev/urandom - Requested: ' + IntToStr(BytesRequired) + ' Got: ' +
+        IntToStr(Result));
 
     if Result < 0 then
-      Result:= 0;
+      Result := 0;
 
-    Result:= Result * 8;
+    Result := Result * 8;
   end;
 end;
 

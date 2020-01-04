@@ -72,7 +72,7 @@ constructor TEntropySource.Create(MinStandbyBits: Integer = DefaultMinStandbyBit
 begin
   inherited Create;
 
-  Self.MinStandbyBits:= MinStandbyBits;
+  Self.MinStandbyBits := MinStandbyBits;
 end;
 
 { TCombinedEntropySource }
@@ -91,7 +91,7 @@ constructor TCombinedEntropySource.Create(MinStandbyBits: Integer = DefaultMinSt
 begin
   inherited;
 
-  EntropySources:= TEntropySourceList.Create;
+  EntropySources := TEntropySourceList.Create;
 end;
 
 destructor TCombinedEntropySource.Destroy;
@@ -105,10 +105,10 @@ function TCombinedEntropySource.ReadEntropy(EntropyData: TStream; MinimumBits: I
 var
   EntropySource: TEntropySource;
 begin
-  Result:= 0;
+  Result := 0;
 
   for EntropySource in EntropySources do
-    Result:= Result + EntropySource.ReadEntropy(EntropyData, MinimumBits);
+    Result := Result + EntropySource.ReadEntropy(EntropyData, MinimumBits);
 end;
 
 end.

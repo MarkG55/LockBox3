@@ -51,14 +51,14 @@ Uses
   Generics.Collections,
   uTPLb_EntropySource,
   SyncObjs,
-  System.Diagnostics2;
+  System.Diagnostics;
 
 Type
-  TReading = Word;  // Only use the low order 2 Bytes
+  TReading = Word; // Only use the low order 2 Bytes
 
 Const
-  EstimatedBitsPerReading = 4;  // Conservative estimate
-  EstimatedBitsPerByte    = EstimatedBitsPerReading / SizeOf(TReading);
+  EstimatedBitsPerReading = 4; // Conservative estimate
+  EstimatedBitsPerByte = EstimatedBitsPerReading / SizeOf(TReading);
 
 Type
   TThreadBasedEntropySource = Class(TEntropySource)
@@ -86,15 +86,15 @@ constructor TThreadBasedEntropySource.Create(MinStandbyBits: Integer);
 begin
   inherited;
 
-  CriticalSection:= TCriticalSection.Create;
-  ThreadFinished:= TEvent.Create;
-  EntropyData:= TBytesStream.Create;
+  CriticalSection := TCriticalSection.Create;
+  ThreadFinished := TEvent.Create;
+  EntropyData := TBytesStream.Create;
   TThread.CreateAnonymousThread(ThreadEntropySource).Start;
 end;
 
 destructor TThreadBasedEntropySource.Destroy;
 begin
-  BeingDestroyed:= True;
+  BeingDestroyed := True;
 
   ThreadFinished.WaitFor;
 
@@ -107,7 +107,7 @@ end;
 
 function TThreadBasedEntropySource.HaveEnoughEntropy: Boolean;
 begin
-  Result:= (EntropyData.Size * EstimatedBitsPerByte) >= MinStandbyBits;
+  Result := (EntropyData.Size * EstimatedBitsPerByte) >= MinStandbyBits;
 end;
 
 function TThreadBasedEntropySource.ReadEntropy(EntropyData: TStream; MinimumBits: Integer): Integer;
@@ -115,10 +115,10 @@ var
   BytesRequired: Integer;
   NewEntropyDataSize: Integer;
 begin
-  Result:= 0;
+  Result := 0;
 
   if MinStandbyBits < MinimumBits then
-    MinStandbyBits:= MinimumBits;
+    MinStandbyBits := MinimumBits;
 
   while (not HaveEnoughEntropy) do
     begin
@@ -131,22 +131,22 @@ begin
   CriticalSection.Enter;
 
   try
-    BytesRequired:= Round(MinimumBits / EstimatedBitsPerByte);
+    BytesRequired := Round(MinimumBits / EstimatedBitsPerByte);
 
     Assert(Self.EntropyData.Size >= BytesRequired);
 
     EntropyData.Write(Self.EntropyData.Bytes[0], BytesRequired);
 
     if BytesRequired >= Self.EntropyData.Size then
-      Self.EntropyData.Size:= 0
+      Self.EntropyData.Size := 0
     else
       begin
-        NewEntropyDataSize:= Self.EntropyData.Size - BytesRequired;
+        NewEntropyDataSize := Self.EntropyData.Size - BytesRequired;
         Move(Self.EntropyData.Bytes[BytesRequired], Self.EntropyData.Bytes[0], NewEntropyDataSize);
-        EntropyData.Size:= NewEntropyDataSize;
+        EntropyData.Size := NewEntropyDataSize;
       end;
 
-    Result:= BytesRequired;
+    Result := BytesRequired;
   finally
     CriticalSection.Leave;
   end;
@@ -158,19 +158,19 @@ var
   Diff: UInt64;
   Reading: TReading;
 begin
-  LastValue:= TMyStopWatch.GetTimeStamp;
+  LastValue := TStopWatch.GetTimeStamp;
 
   while not BeingDestroyed do
     begin
       Sleep(1);
-      NextValue:= TMyStopWatch.GetTimeStamp;
-      Diff:= NextValue - LastValue;
-      LastValue:= NextValue;
+      NextValue := TStopWatch.GetTimeStamp;
+      Diff := NextValue - LastValue;
+      LastValue := NextValue;
 
       if HaveEnoughEntropy then
         Continue;
 
-      Reading:= Diff;  // Lost all but the bottom 2 bytes.
+      Reading := Diff; // Lose all but the bottom 2 bytes.
 
       CriticalSection.Enter;
 

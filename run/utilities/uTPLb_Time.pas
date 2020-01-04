@@ -53,13 +53,18 @@ Type
 implementation
 
 {$IF defined(MSWINDOWS)}
-uses Winapi.Windows;
-{$ELSEIF defined(MACOS)}
-uses Macapi.Mach;
-{$ELSEIF defined(POSIX)}
-uses Posix.Time;
-{$ENDIF}
 
+uses
+  Winapi.Windows;
+{$ELSEIF defined(MACOS)}
+
+uses
+  Macapi.Mach;
+{$ELSEIF defined(POSIX)}
+
+uses
+  Posix.Time;
+{$ENDIF}
 { TTimeUtils }
 
 class constructor TTimeUtils.Create;
@@ -89,11 +94,9 @@ begin
 {$ENDIF}
 end;
 
-
 class function TTimeUtils.GetTickCount64: Int64;
 begin
-  Result:= Trunc(GetTimeStamp * TickFrequency / TTimeSpan.TicksPerMillisecond);
+  Result := Trunc(GetTimeStamp * TickFrequency / TTimeSpan.TicksPerMillisecond);
 end;
-
 
 end.

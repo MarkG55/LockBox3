@@ -39,7 +39,8 @@ unit uTPLb_InsecureRandom;
 
 interface
 
-uses Classes;
+uses
+  Classes;
 
 type
 
@@ -89,10 +90,9 @@ var
   SystemTimes: TThread.TSystemTimes;
 begin
   TThread.GetSystemTimes(SystemTimes);
-  result:= SystemTimes.KernelTime
+  result := SystemTimes.KernelTime
 end;
 {$ENDIF}
-
 { TInsecureRandomStream }
 
 constructor TInsecureRandomStream.Create;
@@ -108,7 +108,7 @@ constructor TInsecureRandomStream.Create(Seed: Int64);
 begin
   inherited Create;
 
-  Self.Seed:= Seed;
+  Self.Seed := Seed;
 end;
 
 procedure TInsecureRandomStream.Crunch;
@@ -116,15 +116,15 @@ procedure TInsecureRandomStream.Crunch;
 const
   Factor: Int64 = 6364136223846793005;
 begin
-  FValue:= FValue * Factor + 1;
-  FBuffer:= FValue;
-  FAvail:= SizeOf(FValue)
+  FValue := FValue * Factor + 1;
+  FBuffer := FValue;
+  FAvail := SizeOf(FValue)
 end;
 {$RANGECHECKS ON} {$OVERFLOWCHECKS ON}
 
 function TInsecureRandomStream.GetSize: Int64;
 begin
-  result:= 0
+  result := 0
 end;
 
 procedure TInsecureRandomStream.Randomize;
@@ -137,21 +137,19 @@ var
 {$ENDIF}
 begin
 {$IFDEF MSWINDOWS}
-  Provider1:= Provider;
-  dwProvType:= PROV_RSA_FULL;
-  dwFlags:= CRYPT_SILENT;
-  hasOpenHandle:= CryptAcquireContext(hProv, nil, PChar(Provider),
-    dwProvType, dwFlags);
+  Provider1 := Provider;
+  dwProvType := PROV_RSA_FULL;
+  dwFlags := CRYPT_SILENT;
+  hasOpenHandle := CryptAcquireContext(hProv, nil, PChar(Provider), dwProvType, dwFlags);
   try
-    if (not hasOpenHandle) or (not CryptGenRandom(hProv, SizeOf(FValue),
-      @FValue)) then
-      FValue:= TimeStampClock
+    if (not hasOpenHandle) or (not CryptGenRandom(hProv, SizeOf(FValue), @FValue)) then
+      FValue := TimeStampClock
   finally
     if hasOpenHandle then
       CryptReleaseContext(hProv, 0)
   end;
 {$ELSE}
-  FValue:= TimeStampClock;
+  FValue := TimeStampClock;
 {$ENDIF}
   Crunch
 end;
@@ -163,13 +161,13 @@ var
   Harv: Int64;
   Carry: uint32;
 begin
-  result:= Max(Count, 0);
+  result := Max(Count, 0);
   if result <= 0 then
     exit;
-  P:= @Buffer;
-  C:= result;
+  P := @Buffer;
+  C := result;
   repeat
-    Amnt:= Min(FAvail, C);
+    Amnt := Min(FAvail, C);
     Move(FBuffer, P^, Amnt);
     Dec(FAvail, Amnt);
     Dec(C, Amnt);
@@ -178,35 +176,35 @@ begin
       Crunch
     else
       begin
-        Harv:= FBuffer;
+        Harv := FBuffer;
         if Amnt >= 4 then
           begin
-            Int64Rec(Harv).Lo:= Int64Rec(Harv).Hi;
-            Int64Rec(Harv).Hi:= 0;
+            Int64Rec(Harv).Lo := Int64Rec(Harv).Hi;
+            Int64Rec(Harv).Hi := 0;
             Dec(Amnt, 4)
           end;
         if Amnt > 0 then
           begin
-            AmntBits:= Amnt * 8;
-            Carry:= Int64Rec(Harv).Hi shl (32 - (AmntBits));
-            Int64Rec(Harv).Hi:= Int64Rec(Harv).Hi shr AmntBits;
-            Int64Rec(Harv).Lo:= (Int64Rec(Harv).Lo shr AmntBits) or Carry;
+            AmntBits := Amnt * 8;
+            Carry := Int64Rec(Harv).Hi shl (32 - (AmntBits));
+            Int64Rec(Harv).Hi := Int64Rec(Harv).Hi shr AmntBits;
+            Int64Rec(Harv).Lo := (Int64Rec(Harv).Lo shr AmntBits) or Carry;
           end;
-        FBuffer:= Harv
-      end
-  until C <= 0
+        FBuffer := Harv
+      end;
+  until C <= 0;
 end;
 
 function TInsecureRandomStream.Seek(const Offset: Int64; Origin: TSeekOrigin): Int64;
 begin
-  result:= 0
+  result := 0
 end;
 
 procedure TInsecureRandomStream.SetSeed(Value: Int64);
 begin
-  FValue:= Value;
-  FBuffer:= FValue;
-  FAvail:= SizeOf(FBuffer)
+  FValue := Value;
+  FBuffer := FValue;
+  FAvail := SizeOf(FBuffer)
 end;
 
 procedure TInsecureRandomStream.SetSize(const NewSize: Int64);
@@ -215,7 +213,7 @@ end;
 
 function TInsecureRandomStream.Write(const Buffer; Count: Longint): Longint;
 begin
-  result:= Count
+  result := Count
 end;
 
 end.

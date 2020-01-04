@@ -57,13 +57,13 @@ var
   BytesRequired: Integer;
   Bytes: TBytes;
 begin
-  Result:= 0;
-  BytesRequired:= MinimumBits div 8;
+  Result := 0;
+  BytesRequired := MinimumBits div 8;
   SetLength(Bytes, BytesRequired);
 
-  dwProvType:= PROV_RSA_FULL;
-  dwFlags:= CRYPT_SILENT;
-  GotHandle:= CryptAcquireContext(hProv, nil, PChar(Provider), dwProvType, dwFlags);
+  dwProvType := PROV_RSA_FULL;
+  dwFlags := CRYPT_SILENT;
+  GotHandle := CryptAcquireContext(hProv, nil, PChar(Provider), dwProvType, dwFlags);
   try
     if not GotHandle then
       exit;
@@ -72,7 +72,7 @@ begin
       exit;
 
     EntropyData.Write(Bytes[0], BytesRequired);
-    Result:= BytesRequired * 8;
+    Result := BytesRequired * 8;
   finally
     if GotHandle then
       CryptReleaseContext(hProv, 0);

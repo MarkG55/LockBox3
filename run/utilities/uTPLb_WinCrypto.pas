@@ -36,22 +36,12 @@ interface
 Uses
   Windows;
 
-function CryptAcquireContext(
-  var phProv: THandle;
-  pszContainer, pszProvider: PChar;
-  dwProvType, dwFlags: DWORD): bool;
-  stdcall; external advapi32 name 'CryptAcquireContextW';
+function CryptAcquireContext(var phProv: THandle; pszContainer, pszProvider: PChar; dwProvType, dwFlags: DWORD): bool; stdcall;
+  external advapi32 name 'CryptAcquireContextW';
 
-function CryptReleaseContext(
-  hProv: THandle;
-  dwFlags: DWORD): bool;
-  stdcall; external advapi32 name 'CryptReleaseContext';
+function CryptReleaseContext(hProv: THandle; dwFlags: DWORD): bool; stdcall; external advapi32 name 'CryptReleaseContext';
 
-function CryptGenRandom(
-  hProv: THandle;
-  dwLen: DWORD;
-  pbBuffer: pointer): bool;
-  stdcall; external advapi32 name 'CryptGenRandom';
+function CryptGenRandom(hProv: THandle; dwLen: DWORD; pbBuffer: pointer): bool; stdcall; external advapi32 name 'CryptGenRandom';
 
 const
   PROV_RSA_FULL = 1;

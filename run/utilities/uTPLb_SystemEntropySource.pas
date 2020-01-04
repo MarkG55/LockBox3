@@ -33,18 +33,18 @@ unit uTPLb_SystemEntropySource;
 interface
 
 Uses
-{$ifdef POSIX}
+{$IFDEF POSIX}
   uTPLb_PosixEntropySource;
-{$else}
+{$ELSE}
   uTPLb_WindowsEntropySource;
-{$endif}
+{$ENDIF}
 
 Type
-{$ifdef POSIX}
+{$IFDEF POSIX}
   TSystemEntropySource = TPosixEntropySource;
-{$else}
+{$ELSE}
   TSystemEntropySource = TWindowsEntropySource;
-{$endif}
+{$ENDIF}
 
 implementation
 
